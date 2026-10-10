@@ -22,6 +22,8 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
     suspend fun pendingDumpingReportsForSync(): List<DumpingReport> = dumpingReports.getPendingForSync()
 
     suspend fun createBatch(draft: WasteBatchDraft): WasteBatch {
+        val validationErrors = WasteBatchValidator.validate(draft)
+        require(validationErrors.isEmpty()) { validationErrors.joinToString(" ") }
         val now = System.currentTimeMillis()
         val batch = WasteBatch(
             id = "SM-" + UUID.randomUUID().toString().replace("-", "").take(12).uppercase(),
@@ -58,6 +60,8 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
     }
 
     suspend fun updateBatch(id: String, draft: WasteBatchDraft, reason: String): WasteBatch {
+        val validationErrors = WasteBatchValidator.validate(draft)
+        require(validationErrors.isEmpty()) { validationErrors.joinToString(" ") }
         require(reason.isNotBlank()) { "Enter a reason for correcting this record." }
         val existing = requireNotNull(batches.getById(id)) { "The batch no longer exists." }
         check(!existing.isArchived) { "Archived batches cannot be edited." }
