@@ -27,6 +27,8 @@ data class WasteHandover(
     val timestampEpochMillis: Long,
     @ColumnInfo(defaultValue = "''") val evidenceReference: String = "",
     @ColumnInfo(defaultValue = "''") val notes: String = "",
+    @ColumnInfo(defaultValue = "''") val transporterOrganisation: String = "",
+    @ColumnInfo(defaultValue = "''") val transportManifestReference: String = "",
     @ColumnInfo(defaultValue = "'AWAITING_EVIDENCE'") val evidenceStatus: String = "AWAITING_EVIDENCE",
     @ColumnInfo(defaultValue = "'PENDING'") val syncState: String = "PENDING",
     val reviewedByRole: String? = null,
