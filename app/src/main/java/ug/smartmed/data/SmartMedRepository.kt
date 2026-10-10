@@ -124,7 +124,6 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
     ): WasteHandover {
         require(senderRole in SmartMedOptions.authorisedRoles) { "Choose a valid sender role." }
         require(receiverRole in SmartMedOptions.authorisedRoles) { "Choose a valid receiver role." }
-        require(senderRole != receiverRole) { "Sender and receiver roles must be recorded separately." }
         val batch = requireNotNull(batches.getById(batchId)) { "Choose an existing batch." }
         check(!batch.isArchived) { "Archived batches cannot receive new handovers." }
         val now = System.currentTimeMillis()
