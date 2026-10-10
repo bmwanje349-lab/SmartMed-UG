@@ -8,6 +8,7 @@
 - Batch registration, searchable active list, reasoned corrections and soft archiving.
 - Transactional local audit events.
 - Handover log with a supporting-evidence reference and explicit missing/unreviewed/review-entry statuses.
+- A local-only suspected-dumping incident log with date, location description, factual observation, and optional manually entered external reference. Reports remain unverified and are not sent to authorities.
 - Local summary and CSV export.
 - Unit tests and CI APK build.
 - Pending sync state is recorded, but no upload or server is implemented.
