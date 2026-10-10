@@ -27,7 +27,8 @@ object DumpingReportCsvExporter {
 
     private fun escape(value: String): String {
         val cleaned = value.replace("\r\n", "\n").replace("\r", "\n")
-        val safe = if (cleaned.firstOrNull() in setOf('=', '+', '-', '@', '\t', '\r')) "'$cleaned" else cleaned
+        val firstNonWhitespace = cleaned.firstOrNull { !it.isWhitespace() }
+        val safe = if (firstNonWhitespace != null && firstNonWhitespace in setOf('=', '+', '-', '@', '\t', '\r')) "'$cleaned" else cleaned
         return if (safe.any { it == ',' || it == '"' || it == '\n' }) {
             "\"" + safe.replace("\"", "\"\"") + "\""
         } else {
