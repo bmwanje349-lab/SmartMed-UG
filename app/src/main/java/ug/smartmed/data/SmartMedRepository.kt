@@ -15,6 +15,12 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
     fun observeRecentAuditEvents(): Flow<List<BatchAuditEvent>> = audits.observeRecent()
     fun observeDumpingReports(): Flow<List<DumpingReport>> = dumpingReports.observeAll()
 
+    // These readers are deliberately local-only. A future sync worker must add
+    // authenticated transport, server acknowledgements, idempotency, and conflict handling.
+    suspend fun pendingBatchesForSync(): List<WasteBatch> = batches.getPendingForSync()
+    suspend fun pendingHandoversForSync(): List<WasteHandover> = handovers.getPendingForSync()
+    suspend fun pendingDumpingReportsForSync(): List<DumpingReport> = dumpingReports.getPendingForSync()
+
     suspend fun createBatch(draft: WasteBatchDraft): WasteBatch {
         val now = System.currentTimeMillis()
         val batch = WasteBatch(
