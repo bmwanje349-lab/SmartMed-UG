@@ -5,6 +5,20 @@ import org.junit.Test
 
 class DumpingReportCsvExporterTest {
     @Test
+    fun formulaLikeDescriptionIsEscapedForSpreadsheets() {
+        val report = DumpingReport(
+            id = "DR-TEST-FORMULA",
+            description = "=1+1",
+            locationDescription = "Safe location text",
+            observedAtEpochMillis = 1000L,
+            reportedAtEpochMillis = 2000L,
+            reporterRole = "Nurse"
+        )
+        val csv = DumpingReportCsvExporter.export(listOf(report))
+        assertTrue(csv.contains(",\"'=1+1\","))
+    }
+
+    @Test
     fun exportEscapesCommasAndKeepsUnverifiedStatus() {
         val report = DumpingReport(
             id = "DR-TEST-001",
