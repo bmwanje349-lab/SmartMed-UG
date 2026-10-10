@@ -16,6 +16,7 @@ abstract class SmartMedDatabase : RoomDatabase() {
     abstract fun wasteBatchDao(): WasteBatchDao
     abstract fun batchAuditDao(): BatchAuditDao
     abstract fun wasteHandoverDao(): WasteHandoverDao
+    abstract fun dumpingReportDao(): DumpingReportDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
