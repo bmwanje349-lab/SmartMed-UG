@@ -20,6 +20,9 @@ class SmartMedViewModel(application: Application) : AndroidViewModel(application
     val auditEvents: StateFlow<List<BatchAuditEvent>> =
         repository.observeRecentAuditEvents().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val dumpingReports: StateFlow<List<DumpingReport>> =
+        repository.observeDumpingReports().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     fun saveBatch(
         draft: WasteBatchDraft,
         editingId: String?,
@@ -86,6 +89,28 @@ class SmartMedViewModel(application: Application) : AndroidViewModel(application
                 onComplete(true, "Handover saved. Evidence status is shown separately.")
             } catch (error: Exception) {
                 onComplete(false, error.message ?: "The handover could not be saved.")
+            }
+        }
+    }
+
+    fun recordDumpingReport(
+        description: String,
+        locationDescription: String,
+        observedAtEpochMillis: Long,
+        reporterRole: String,
+        referralReference: String,
+        followUpNotes: String,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val report = repository.recordDumpingReport(
+                    description, locationDescription, observedAtEpochMillis,
+                    reporterRole, referralReference, followUpNotes
+                )
+                onComplete(true, "Suspected-dumping report ${report.id} saved locally only. Nothing was sent to any authority.")
+            } catch (error: Exception) {
+                onComplete(false, error.message ?: "The report could not be saved.")
             }
         }
     }
