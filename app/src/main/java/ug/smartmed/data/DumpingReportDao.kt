@@ -12,4 +12,7 @@ interface DumpingReportDao {
 
     @Insert
     suspend fun insert(report: DumpingReport)
+
+    @Query("SELECT * FROM dumping_reports WHERE syncState = 'PENDING' ORDER BY reportedAtEpochMillis ASC")
+    suspend fun getPendingForSync(): List<DumpingReport>
 }
