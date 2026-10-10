@@ -24,6 +24,9 @@ interface WasteBatchDao {
     @Update
     suspend fun update(batch: WasteBatch)
 
+    @Query("SELECT * FROM waste_batches WHERE syncState = 'PENDING' ORDER BY updatedAtEpochMillis ASC")
+    suspend fun getPendingForSync(): List<WasteBatch>
+
     @Query("SELECT COUNT(*) FROM waste_batches WHERE isArchived = 0")
     suspend fun countActive(): Int
 }
