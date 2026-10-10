@@ -34,6 +34,7 @@ The APK is provided as the `smartmed-debug-apk` artifact for successful runs. It
 - Follow existing facility segregation, PPE, transport, treatment and disposal procedures. Do not approach, open, move or handle waste to record it.
 - The initial category vocabulary is a draft for prototype use. It must be checked and mapped by the facility's waste/environmental-health focal person to the current Uganda Ministry of Health operational guidelines and facility SOPs before a pilot.
 - A recorder/reviewer role is a label, not a verified identity. The prototype has no login or server-enforced access control.
+- The local Room database is not encrypted at rest by this prototype; do not put sensitive or identifiable operational data into it until a reviewed security design is implemented.
 - The audit trail is local and not tamper-proof. CSV exports are not automatically encrypted or transmitted.
 - Recording a handover or a review does not independently establish that waste was received, treated or finally disposed of safely.
 - No NEMA, Ministry, district or facility integration is implemented or implied.
