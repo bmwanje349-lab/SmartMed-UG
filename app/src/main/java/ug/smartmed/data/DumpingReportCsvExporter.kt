@@ -27,10 +27,11 @@ object DumpingReportCsvExporter {
 
     private fun escape(value: String): String {
         val cleaned = value.replace("\r\n", "\n").replace("\r", "\n")
-        return if (cleaned.any { it == ',' || it == '"' || it == '\n' }) {
-            "\"" + cleaned.replace("\"", "\"\"") + "\""
+        val safe = if (cleaned.firstOrNull() in setOf('=', '+', '-', '@', '\t', '\r')) "'$cleaned" else cleaned
+        return if (safe.any { it == ',' || it == '"' || it == '\n' }) {
+            "\"" + safe.replace("\"", "\"\"") + "\""
         } else {
-            cleaned
+            safe
         }
     }
 }
