@@ -677,7 +677,7 @@ private fun DumpingReportCard(report: DumpingReport) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(report.id, style = MaterialTheme.typography.titleMedium)
             Text("Status: unverified local report")
-            Text("Observed: ${formatTimestamp(report.observedAtEpochMillis)}")
+            Text("Observed date: ${formatDate(report.observedAtEpochMillis)}")
             Text("Recorded: ${formatTimestamp(report.reportedAtEpochMillis)}")
             Text("Location: ${report.locationDescription}")
             Text("Description: ${report.description}")
@@ -750,6 +750,9 @@ private fun parseObservedDate(value: String): Long? {
         null
     }
 }
+
+private fun formatDate(epochMillis: Long): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(epochMillis))
 
 private fun formatTimestamp(epochMillis: Long): String =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(epochMillis))
