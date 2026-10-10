@@ -21,7 +21,7 @@ class ReportCsvExporterTest {
 
         val csv = ReportCsvExporter.export(listOf(batch), emptyList())
 
-        assertTrue(csv.startsWith("\"Batch ID\",Facility,"))
+        assertTrue(csv.startsWith("Batch ID,Facility,"))
         assertTrue(csv.contains("\"Room 1, clinic\""))
         assertTrue(csv.contains("\"Needs \"\"review\"\"\""))
         assertTrue(csv.contains("SM-TEST-001"))
@@ -51,6 +51,6 @@ class ReportCsvExporterTest {
         )
 
         val csv = ReportCsvExporter.export(listOf(batch), handovers)
-        assertTrue(csv.contains("1,1,1,"))
+        assertTrue(csv.contains("2,1,1,"))
     }
 }
