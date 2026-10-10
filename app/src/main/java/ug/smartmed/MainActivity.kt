@@ -45,6 +45,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ug.smartmed.data.BatchAuditEvent
 import ug.smartmed.data.ReportCsvExporter
+import ug.smartmed.data.DumpingReport
+import ug.smartmed.data.DumpingReportCsvExporter
 import ug.smartmed.data.SmartMedOptions
 import ug.smartmed.data.SmartMedViewModel
 import ug.smartmed.data.WasteBatch
@@ -75,6 +77,7 @@ class MainActivity : ComponentActivity() {
 private enum class SmartMedTab(val label: String) {
     BATCHES("Batches"),
     HANDOVERS("Handovers"),
+    DUMPING("Dumping"),
     REPORTS("Reports"),
     AUDIT("Audit trail")
 }
@@ -84,6 +87,7 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
     val batches by viewModel.batches.collectAsState()
     val handovers by viewModel.handovers.collectAsState()
     val auditEvents by viewModel.auditEvents.collectAsState()
+    val dumpingReports by viewModel.dumpingReports.collectAsState()
     val context = LocalContext.current
 
     var selectedTab by remember { mutableStateOf(SmartMedTab.BATCHES) }
@@ -107,6 +111,13 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
     var handoverNotes by remember { mutableStateOf("") }
     var reviewerRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
     var reviewNote by remember { mutableStateOf("") }
+
+    var incidentDescription by remember { mutableStateOf("") }
+    var incidentLocation by remember { mutableStateOf("") }
+    var observedDate by remember { mutableStateOf(currentLocalDate()) }
+    var incidentReporterRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
+    var incidentReferralReference by remember { mutableStateOf("") }
+    var incidentFollowUpNotes by remember { mutableStateOf("") }
 
     var archiveTarget by remember { mutableStateOf<WasteBatch?>(null) }
     var archiveReason by remember { mutableStateOf("") }
@@ -408,6 +419,110 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                 }
             }
 
+            SmartMedTab.DUMPING -> LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Suspected illegal dumping", style = MaterialTheme.typography.titleLarge)
+                            Text("Record observable facts only. Do not approach, touch, open, move or photograph waste at close range. Do not name or accuse individuals.")
+                            Text("This report stays on this phone. This app does not send reports to NEMA, police, district offices or any other authority.")
+                            OutlinedTextField(
+                                value = incidentDescription,
+                                onValueChange = { if (it.length <= 1500) incidentDescription = it },
+                                label = { Text("What was observed? (facts only)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 3
+                            )
+                            OutlinedTextField(
+                                value = incidentLocation,
+                                onValueChange = { if (it.length <= 300) incidentLocation = it },
+                                label = { Text("Location description") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2
+                            )
+                            OutlinedTextField(
+                                value = observedDate,
+                                onValueChange = { if (it.length <= 10) observedDate = it },
+                                label = { Text("Date observed (YYYY-MM-DD)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            DropdownField(
+                                label = "Reporter role label",
+                                value = incidentReporterRole,
+                                options = SmartMedOptions.authorisedRoles.map { it to it },
+                                onSelected = { incidentReporterRole = it }
+                            )
+                            OutlinedTextField(
+                                value = incidentReferralReference,
+                                onValueChange = { if (it.length <= 240) incidentReferralReference = it },
+                                label = { Text("Existing external reference (only if already reported)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = incidentFollowUpNotes,
+                                onValueChange = { if (it.length <= 1000) incidentFollowUpNotes = it },
+                                label = { Text("Follow-up notes (optional; no personal data)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2
+                            )
+                            Button(
+                                onClick = {
+                                    val observedAt = parseObservedDate(observedDate)
+                                    if (observedAt == null) {
+                                        message = "Enter a valid date using YYYY-MM-DD."
+                                    } else {
+                                        viewModel.recordDumpingReport(
+                                            incidentDescription,
+                                            incidentLocation,
+                                            observedAt,
+                                            incidentReporterRole,
+                                            incidentReferralReference,
+                                            incidentFollowUpNotes
+                                        ) { success, result ->
+                                            message = result
+                                            if (success) {
+                                                incidentDescription = ""
+                                                incidentLocation = ""
+                                                observedDate = currentLocalDate()
+                                                incidentReferralReference = ""
+                                                incidentFollowUpNotes = ""
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Save suspected-dumping report locally") }
+                        }
+                    }
+                    Text("Local reports: ${dumpingReports.size}", style = MaterialTheme.typography.titleMedium)
+                }
+                if (dumpingReports.isEmpty()) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text("No incident reports yet. Use a fictional example for software testing.", modifier = Modifier.padding(16.dp))
+                        }
+                    }
+                }
+                items(dumpingReports, key = { it.id }) { report ->
+                    DumpingReportCard(report)
+                }
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            pendingCsv = DumpingReportCsvExporter.export(dumpingReports)
+                            createCsv.launch("smartmed-dumping-reports-${System.currentTimeMillis()}.csv")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Export incident log as CSV") }
+                }
+            }
+
             SmartMedTab.REPORTS -> LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(16.dp),
@@ -418,6 +533,7 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Local summary", style = MaterialTheme.typography.titleLarge)
                             Text("Active batches: ${batches.size}")
+                            Text("Suspected-dumping reports recorded locally: ${dumpingReports.size} (unverified)")
                             Text("Handover records: ${handovers.size}")
                             Text("Handovers missing a reference: ${handovers.count { it.evidenceStatus == "AWAITING_EVIDENCE" }}")
                             Text("References awaiting a recorded review: ${handovers.count { it.evidenceStatus == "PRESENT_UNREVIEWED" }}")
@@ -556,6 +672,28 @@ private fun HandoverCard(handover: WasteHandover, onReview: () -> Unit) {
 }
 
 @Composable
+private fun DumpingReportCard(report: DumpingReport) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(report.id, style = MaterialTheme.typography.titleMedium)
+            Text("Status: unverified local report")
+            Text("Observed: ${formatTimestamp(report.observedAtEpochMillis)}")
+            Text("Recorded: ${formatTimestamp(report.reportedAtEpochMillis)}")
+            Text("Location: ${report.locationDescription}")
+            Text("Description: ${report.description}")
+            Text("Reporter role label: ${report.reporterRole}")
+            if (report.referralReference.isNotBlank()) {
+                Text("Manually entered external reference: ${report.referralReference}")
+            } else {
+                Text("External reference: not entered")
+            }
+            if (report.followUpNotes.isNotBlank()) Text("Follow-up: ${report.followUpNotes}")
+            Text("Sync state: ${report.syncState} — not uploaded")
+        }
+    }
+}
+
+@Composable
 private fun AuditEventCard(event: BatchAuditEvent) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -595,6 +733,21 @@ private fun DropdownField(
                 )
             }
         }
+    }
+}
+
+private fun currentLocalDate(): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+private fun parseObservedDate(value: String): Long? {
+    val input = value.trim()
+    if (input.length != 10) return null
+    val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply { isLenient = false }
+    return try {
+        val parsed = formatter.parse(input) ?: return null
+        if (formatter.format(parsed) == input && parsed.time <= System.currentTimeMillis()) parsed.time else null
+    } catch (_: Exception) {
+        null
     }
 }
 
