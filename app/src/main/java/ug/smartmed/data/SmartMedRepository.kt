@@ -9,17 +9,20 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
     private val audits = database.batchAuditDao()
     private val handovers = database.wasteHandoverDao()
     private val dumpingReports = database.dumpingReportDao()
+    private val outcomes = database.wasteOutcomeDao()
 
     fun observeActiveBatches(): Flow<List<WasteBatch>> = batches.observeActive()
     fun observeHandovers(): Flow<List<WasteHandover>> = handovers.observeAll()
     fun observeRecentAuditEvents(): Flow<List<BatchAuditEvent>> = audits.observeRecent()
     fun observeDumpingReports(): Flow<List<DumpingReport>> = dumpingReports.observeAll()
+    fun observeWasteOutcomes(): Flow<List<WasteOutcome>> = outcomes.observeAll()
 
     // These readers are deliberately local-only. A future sync worker must add
     // authenticated transport, server acknowledgements, idempotency, and conflict handling.
     suspend fun pendingBatchesForSync(): List<WasteBatch> = batches.getPendingForSync()
     suspend fun pendingHandoversForSync(): List<WasteHandover> = handovers.getPendingForSync()
     suspend fun pendingDumpingReportsForSync(): List<DumpingReport> = dumpingReports.getPendingForSync()
+    suspend fun pendingWasteOutcomesForSync(): List<WasteOutcome> = outcomes.getPendingForSync()
 
     suspend fun createBatch(draft: WasteBatchDraft): WasteBatch {
         val validationErrors = WasteBatchValidator.validate(draft)
@@ -130,10 +133,16 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
         senderRole: String,
         receiverRole: String,
         evidenceReference: String,
-        notes: String
+        notes: String,
+        transporterOrganisation: String,
+        transportManifestReference: String
     ): WasteHandover {
         require(senderRole in SmartMedOptions.authorisedRoles) { "Choose a valid sender role." }
         require(receiverRole in SmartMedOptions.authorisedRoles) { "Choose a valid receiver role." }
+        require(notes.length <= 1000) { "Handover notes must be 1,000 characters or fewer." }
+        require(evidenceReference.length <= 240) { "Evidence reference must be 240 characters or fewer." }
+        require(transporterOrganisation.length <= 160) { "Transporter organisation must be 160 characters or fewer." }
+        require(transportManifestReference.length <= 240) { "Transport manifest reference must be 240 characters or fewer." }
         val batch = requireNotNull(batches.getById(batchId)) { "Choose an existing batch." }
         check(!batch.isArchived) { "Archived batches cannot receive new handovers." }
         val now = System.currentTimeMillis()
@@ -146,6 +155,8 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
             timestampEpochMillis = now,
             evidenceReference = reference,
             notes = notes.trim(),
+            transporterOrganisation = transporterOrganisation.trim(),
+            transportManifestReference = transportManifestReference.trim(),
             evidenceStatus = if (reference.isBlank()) "AWAITING_EVIDENCE" else "PRESENT_UNREVIEWED",
             syncState = "PENDING"
         )
@@ -197,6 +208,74 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
         }
     }
 
+    suspend fun recordWasteOutcome(draft: WasteOutcomeDraft): WasteOutcome {
+        val errors = WasteOutcomeValidator.validate(draft)
+        require(errors.isEmpty()) { errors.joinToString(" ") }
+        val batch = requireNotNull(batches.getById(draft.batchId)) { "Choose an existing batch." }
+        check(!batch.isArchived) { "Archived batches cannot receive new outcome records." }
+        val now = System.currentTimeMillis()
+        val reference = draft.evidenceReference.trim()
+        val outcome = WasteOutcome(
+            id = "OUT-" + UUID.randomUUID().toString().replace("-", "").take(12).uppercase(),
+            batchId = draft.batchId,
+            stage = draft.stageCode,
+            methodOrFacility = draft.methodOrFacility.trim(),
+            performedAtEpochMillis = draft.performedAtEpochMillis,
+            recordedAtEpochMillis = now,
+            recordedByRole = draft.recordedByRole,
+            evidenceReference = reference,
+            evidenceStatus = if (reference.isBlank()) "AWAITING_EVIDENCE" else "PRESENT_UNREVIEWED",
+            syncState = "PENDING"
+        )
+        database.withTransaction {
+            outcomes.insert(outcome)
+            audits.insert(
+                BatchAuditEvent(
+                    eventId = UUID.randomUUID().toString(),
+                    batchId = draft.batchId,
+                    eventType = if (draft.stageCode == WasteOutcomeStage.TREATMENT.code) "TREATMENT_RECORDED" else "FINAL_DISPOSAL_RECORDED",
+                    timestampEpochMillis = now,
+                    actorRole = draft.recordedByRole,
+                    reason = "An outcome record was entered. This is not independent proof of safe treatment or final disposal.",
+                    oldSnapshot = "",
+                    newSnapshot = outcomeSnapshot(outcome)
+                )
+            )
+        }
+        return outcome
+    }
+
+    suspend fun reviewWasteOutcome(id: String, reviewerRole: String, reviewNote: String) {
+        require(reviewerRole in SmartMedOptions.authorisedRoles) { "Choose a valid reviewer role." }
+        require(reviewNote.length <= 1000) { "Review note must be 1,000 characters or fewer." }
+        val existing = requireNotNull(outcomes.getById(id)) { "The outcome record no longer exists." }
+        require(existing.evidenceReference.isNotBlank()) { "Add a supporting-evidence reference before review." }
+        require(existing.evidenceStatus != "REVIEW_RECORDED") { "A review entry has already been recorded." }
+        val now = System.currentTimeMillis()
+        val updated = existing.copy(
+            evidenceStatus = "REVIEW_RECORDED",
+            reviewedByRole = reviewerRole,
+            reviewedAtEpochMillis = now,
+            reviewNote = reviewNote.trim(),
+            syncState = "PENDING"
+        )
+        database.withTransaction {
+            outcomes.update(updated)
+            audits.insert(
+                BatchAuditEvent(
+                    eventId = UUID.randomUUID().toString(),
+                    batchId = existing.batchId,
+                    eventType = "OUTCOME_EVIDENCE_REVIEW_RECORDED",
+                    timestampEpochMillis = now,
+                    actorRole = reviewerRole,
+                    reason = "A local review entry was recorded. This is not certification of safe treatment or final disposal.",
+                    oldSnapshot = outcomeSnapshot(existing),
+                    newSnapshot = outcomeSnapshot(updated)
+                )
+            )
+        }
+    }
+
     suspend fun recordDumpingReport(
         description: String,
         locationDescription: String,
@@ -237,9 +316,16 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
         batch.syncState, batch.revision.toString(), batch.notes
     ).joinToString("|") { it.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "\\n") }
 
+    private fun outcomeSnapshot(outcome: WasteOutcome): String = listOf(
+        outcome.id, outcome.batchId, outcome.stage, outcome.methodOrFacility,
+        outcome.performedAtEpochMillis.toString(), outcome.evidenceReference,
+        outcome.evidenceStatus, outcome.reviewedByRole.orEmpty(), outcome.reviewNote
+    ).joinToString("|") { it.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "\\n") }
+
     private fun handoverSnapshot(handover: WasteHandover): String = listOf(
         handover.id, handover.batchId, handover.senderRole, handover.receiverRole,
         handover.evidenceReference, handover.evidenceStatus,
+        handover.transporterOrganisation, handover.transportManifestReference,
         handover.reviewedByRole.orEmpty(), handover.reviewNote
     ).joinToString("|") { it.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "\\n") }
 }

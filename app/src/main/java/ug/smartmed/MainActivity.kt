@@ -28,7 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -47,6 +47,10 @@ import ug.smartmed.data.BatchAuditEvent
 import ug.smartmed.data.ReportCsvExporter
 import ug.smartmed.data.DumpingReport
 import ug.smartmed.data.DumpingReportCsvExporter
+import ug.smartmed.data.WasteOutcome
+import ug.smartmed.data.WasteOutcomeDraft
+import ug.smartmed.data.WasteOutcomeCsvExporter
+import ug.smartmed.data.WasteOutcomeStage
 import ug.smartmed.data.SmartMedOptions
 import ug.smartmed.data.SmartMedViewModel
 import ug.smartmed.data.WasteBatch
@@ -77,6 +81,7 @@ class MainActivity : ComponentActivity() {
 private enum class SmartMedTab(val label: String) {
     BATCHES("Batches"),
     HANDOVERS("Handovers"),
+    OUTCOMES("Treatment"),
     DUMPING("Dumping"),
     REPORTS("Reports"),
     AUDIT("Audit trail")
@@ -88,6 +93,7 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
     val handovers by viewModel.handovers.collectAsState()
     val auditEvents by viewModel.auditEvents.collectAsState()
     val dumpingReports by viewModel.dumpingReports.collectAsState()
+    val outcomes by viewModel.outcomes.collectAsState()
     val context = LocalContext.current
 
     var selectedTab by remember { mutableStateOf(SmartMedTab.BATCHES) }
@@ -109,8 +115,19 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
     var receiverRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
     var evidenceReference by remember { mutableStateOf("") }
     var handoverNotes by remember { mutableStateOf("") }
+    var transporterOrganisation by remember { mutableStateOf("") }
+    var transportManifestReference by remember { mutableStateOf("") }
     var reviewerRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
     var reviewNote by remember { mutableStateOf("") }
+
+    var selectedOutcomeBatchId by remember { mutableStateOf("") }
+    var outcomeStage by remember { mutableStateOf(WasteOutcomeStage.TREATMENT) }
+    var outcomeMethodOrFacility by remember { mutableStateOf("") }
+    var outcomeDate by remember { mutableStateOf(currentLocalDate()) }
+    var outcomeRecorderRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
+    var outcomeEvidenceReference by remember { mutableStateOf("") }
+    var outcomeReviewerRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
+    var outcomeReviewNote by remember { mutableStateOf("") }
 
     var incidentDescription by remember { mutableStateOf("") }
     var incidentLocation by remember { mutableStateOf("") }
@@ -154,6 +171,11 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
             batch.collectionPoint.lowercase(Locale.ROOT).contains(query) ||
             (WasteCategory.fromCode(batch.category)?.label ?: batch.category).lowercase(Locale.ROOT).contains(query)
     }
+    val dailyBatchCounts = remember(batches) {
+        batches.groupBy { formatDate(it.createdAtEpochMillis) }
+            .toList()
+            .sortedByDescending { it.first }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -164,7 +186,7 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        TabRow(selectedTabIndex = selectedTab.ordinal) {
+        ScrollableTabRow(selectedTabIndex = selectedTab.ordinal) {
             SmartMedTab.values().forEach { tab ->
                 Tab(
                     selected = selectedTab == tab,
@@ -355,6 +377,20 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                                 onSelected = { receiverRole = it }
                             )
                             OutlinedTextField(
+                                value = transporterOrganisation,
+                                onValueChange = { if (it.length <= 160) transporterOrganisation = it },
+                                label = { Text("Transporter organisation (optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = transportManifestReference,
+                                onValueChange = { if (it.length <= 240) transportManifestReference = it },
+                                label = { Text("Transport manifest / register reference") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
                                 value = evidenceReference,
                                 onValueChange = { if (it.length <= 240) evidenceReference = it },
                                 label = { Text("Supporting evidence reference (optional)") },
@@ -371,12 +407,15 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                             Button(
                                 onClick = {
                                     viewModel.recordHandover(
-                                        selectedBatchId, senderRole, receiverRole, evidenceReference, handoverNotes
+                                        selectedBatchId, senderRole, receiverRole, evidenceReference, handoverNotes,
+                                        transporterOrganisation, transportManifestReference
                                     ) { success, result ->
                                         message = result
                                         if (success) {
                                             evidenceReference = ""
                                             handoverNotes = ""
+                                            transporterOrganisation = ""
+                                            transportManifestReference = ""
                                         }
                                     }
                                 },
@@ -416,6 +455,127 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                             }
                         }
                     )
+                }
+            }
+
+            SmartMedTab.OUTCOMES -> LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Treatment and final-disposal record", style = MaterialTheme.typography.titleLarge)
+                            Text("Record the actual method or facility and a supporting document reference when available. A saved entry is not proof that treatment or disposal was safe.")
+                            DropdownField(
+                                label = "Batch",
+                                value = selectedOutcomeBatchId,
+                                options = listOf("" to "Choose a batch") + batches.map {
+                                    it.id to "${it.id} — ${WasteCategory.fromCode(it.category)?.label ?: it.category}"
+                                },
+                                onSelected = { selectedOutcomeBatchId = it }
+                            )
+                            DropdownField(
+                                label = "Outcome stage",
+                                value = outcomeStage.code,
+                                options = WasteOutcomeStage.values().map { it.code to it.label },
+                                onSelected = { outcomeStage = WasteOutcomeStage.fromCode(it) ?: WasteOutcomeStage.TREATMENT }
+                            )
+                            OutlinedTextField(
+                                value = outcomeMethodOrFacility,
+                                onValueChange = { if (it.length <= 200) outcomeMethodOrFacility = it },
+                                label = { Text("Treatment method / final-disposal facility") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2
+                            )
+                            OutlinedTextField(
+                                value = outcomeDate,
+                                onValueChange = { if (it.length <= 10) outcomeDate = it },
+                                label = { Text("Date performed (YYYY-MM-DD)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            DropdownField(
+                                label = "Recorder role",
+                                value = outcomeRecorderRole,
+                                options = SmartMedOptions.authorisedRoles.map { it to it },
+                                onSelected = { outcomeRecorderRole = it }
+                            )
+                            OutlinedTextField(
+                                value = outcomeEvidenceReference,
+                                onValueChange = { if (it.length <= 240) outcomeEvidenceReference = it },
+                                label = { Text("Treatment certificate / register / receipt reference") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            Button(
+                                onClick = {
+                                    val performedAt = parseObservedDate(outcomeDate)
+                                    if (performedAt == null) {
+                                        message = "Enter a valid date using YYYY-MM-DD that is not in the future."
+                                    } else {
+                                        val draft = WasteOutcomeDraft(
+                                            batchId = selectedOutcomeBatchId,
+                                            stageCode = outcomeStage.code,
+                                            methodOrFacility = outcomeMethodOrFacility,
+                                            performedAtEpochMillis = performedAt,
+                                            recordedByRole = outcomeRecorderRole,
+                                            evidenceReference = outcomeEvidenceReference
+                                        )
+                                        viewModel.recordWasteOutcome(draft) { success, result ->
+                                            message = result
+                                            if (success) {
+                                                outcomeMethodOrFacility = ""
+                                                outcomeDate = currentLocalDate()
+                                                outcomeEvidenceReference = ""
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Save treatment/disposal record offline") }
+                            Text("Evidence review")
+                            DropdownField(
+                                label = "Reviewer role",
+                                value = outcomeReviewerRole,
+                                options = SmartMedOptions.authorisedRoles.map { it to it },
+                                onSelected = { outcomeReviewerRole = it }
+                            )
+                            OutlinedTextField(
+                                value = outcomeReviewNote,
+                                onValueChange = { if (it.length <= 1000) outcomeReviewNote = it },
+                                label = { Text("Outcome review note (optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2
+                            )
+                        }
+                    }
+                    Text("Treatment/disposal records: ${outcomes.size}", style = MaterialTheme.typography.titleMedium)
+                }
+                if (outcomes.isEmpty()) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text("No treatment/disposal outcomes recorded yet. Use fictional batches for initial testing.", modifier = Modifier.padding(16.dp))
+                        }
+                    }
+                }
+                items(outcomes, key = { it.id }) { outcome ->
+                    WasteOutcomeCard(outcome) {
+                        viewModel.reviewWasteOutcome(outcome.id, outcomeReviewerRole, outcomeReviewNote) { _, result ->
+                            message = result
+                        }
+                    }
+                }
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            pendingCsv = WasteOutcomeCsvExporter.export(outcomes)
+                            createCsv.launch("smartmed-treatment-disposal-${System.currentTimeMillis()}.csv")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Export treatment/disposal log as CSV") }
+                    Text("The export contains locally recorded evidence references. It is not sent to an authority.")
                 }
             }
 
@@ -536,8 +696,13 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                             Text("Suspected-dumping reports recorded locally: ${dumpingReports.size} (unverified)")
                             Text("Handover records: ${handovers.size}")
                             Text("Handovers missing a reference: ${handovers.count { it.evidenceStatus == "AWAITING_EVIDENCE" }}")
-                            Text("References awaiting a recorded review: ${handovers.count { it.evidenceStatus == "PRESENT_UNREVIEWED" }}")
-                            Text("Review entries recorded: ${handovers.count { it.evidenceStatus == "REVIEW_RECORDED" }}")
+                            Text("Handover references awaiting a recorded review: ${handovers.count { it.evidenceStatus == "PRESENT_UNREVIEWED" }}")
+                            Text("Treatment/disposal outcomes: ${outcomes.size}")
+                            Text("Outcome records missing evidence references: ${outcomes.count { it.evidenceStatus == "AWAITING_EVIDENCE" }}")
+                            Text("Outcome references awaiting review: ${outcomes.count { it.evidenceStatus == "PRESENT_UNREVIEWED" }}")
+                            Text("Active batches without treatment record: ${batches.count { batch -> outcomes.none { it.batchId == batch.id && it.stage == WasteOutcomeStage.TREATMENT.code } }}")
+                            Text("Active batches without final-disposal record: ${batches.count { batch -> outcomes.none { it.batchId == batch.id && it.stage == WasteOutcomeStage.FINAL_DISPOSAL.code } }}")
+                            Text("These are documentation gaps to check against facility SOPs, not automatic findings of non-compliance.")
                             Text("Quantity is not added across different units; categories must be checked against current national guidance before a pilot.")
                         }
                     }
@@ -548,6 +713,21 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(WasteCategory.fromCode(code)?.label ?: "Legacy / unclassified: $code", modifier = Modifier.weight(1f))
                             Text(group.size.toString(), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+                item { Text("Batch records by day (local date)", style = MaterialTheme.typography.titleMedium) }
+                if (dailyBatchCounts.isEmpty()) {
+                    item { Text("No batch records to summarise yet.") }
+                }
+                items(dailyBatchCounts, key = { it.first }) { (day, group) ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(day, modifier = Modifier.weight(1f))
+                            Text("${group.size} batch(es)", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }
@@ -648,6 +828,8 @@ private fun HandoverCard(handover: WasteHandover, onReview: () -> Unit) {
             Text(handover.id, style = MaterialTheme.typography.titleMedium)
             Text("Batch: ${handover.batchId}")
             Text("Sender: ${handover.senderRole} → Receiver: ${handover.receiverRole}")
+            if (handover.transporterOrganisation.isNotBlank()) Text("Transporter organisation: ${handover.transporterOrganisation}")
+            if (handover.transportManifestReference.isNotBlank()) Text("Transport manifest reference: ${handover.transportManifestReference}")
             Text("Date: ${formatTimestamp(handover.timestampEpochMillis)}")
             Text("Evidence reference: ${handover.evidenceReference.ifBlank { "Not provided" }}")
             Text(
@@ -663,6 +845,39 @@ private fun HandoverCard(handover: WasteHandover, onReview: () -> Unit) {
                 if (handover.reviewNote.isNotBlank()) Text("Review note: ${handover.reviewNote}")
             }
             if (handover.evidenceReference.isNotBlank() && handover.evidenceStatus != "REVIEW_RECORDED") {
+                OutlinedButton(onClick = onReview, modifier = Modifier.fillMaxWidth()) {
+                    Text("Record evidence review")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WasteOutcomeCard(outcome: WasteOutcome, onReview: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(outcome.id, style = MaterialTheme.typography.titleMedium)
+            Text("Batch: ${outcome.batchId}")
+            Text("Stage: ${WasteOutcomeStage.fromCode(outcome.stage)?.label ?: outcome.stage}")
+            Text("Method / facility: ${outcome.methodOrFacility}")
+            Text("Performed: ${formatDate(outcome.performedAtEpochMillis)}")
+            Text("Recorded: ${formatTimestamp(outcome.recordedAtEpochMillis)} • ${outcome.recordedByRole}")
+            Text("Evidence reference: ${outcome.evidenceReference.ifBlank { "Not provided" }}")
+            Text(
+                when (outcome.evidenceStatus) {
+                    "AWAITING_EVIDENCE" -> "Evidence status: missing reference"
+                    "PRESENT_UNREVIEWED" -> "Evidence status: reference recorded; review pending"
+                    "REVIEW_RECORDED" -> "Evidence status: review entry recorded; not certification of safe treatment/disposal"
+                    else -> "Evidence status: ${outcome.evidenceStatus}"
+                }
+            )
+            if (outcome.reviewedByRole != null) {
+                Text("Reviewer role: ${outcome.reviewedByRole} • ${formatTimestamp(outcome.reviewedAtEpochMillis ?: 0L)}")
+                if (outcome.reviewNote.isNotBlank()) Text("Review note: ${outcome.reviewNote}")
+            }
+            Text("Sync state: ${outcome.syncState} — local only")
+            if (outcome.evidenceReference.isNotBlank() && outcome.evidenceStatus != "REVIEW_RECORDED") {
                 OutlinedButton(onClick = onReview, modifier = Modifier.fillMaxWidth()) {
                     Text("Record evidence review")
                 }

@@ -23,6 +23,9 @@ class SmartMedViewModel(application: Application) : AndroidViewModel(application
     val dumpingReports: StateFlow<List<DumpingReport>> =
         repository.observeDumpingReports().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val outcomes: StateFlow<List<WasteOutcome>> =
+        repository.observeWasteOutcomes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     fun saveBatch(
         draft: WasteBatchDraft,
         editingId: String?,
@@ -73,22 +76,59 @@ class SmartMedViewModel(application: Application) : AndroidViewModel(application
         receiverRole: String,
         evidenceReference: String,
         notes: String,
+        transporterOrganisation: String,
+        transportManifestReference: String,
         onComplete: (Boolean, String) -> Unit
     ) {
         if (batchId.isBlank()) {
             onComplete(false, "Choose a batch.")
             return
         }
-        if (notes.length > 1000 || evidenceReference.length > 240) {
-            onComplete(false, "Evidence reference must be at most 240 characters and notes at most 1,000 characters.")
+        if (notes.length > 1000 || evidenceReference.length > 240 ||
+            transporterOrganisation.length > 160 || transportManifestReference.length > 240
+        ) {
+            onComplete(false, "Check the lengths of notes, evidence, transporter organisation and manifest reference.")
             return
         }
         viewModelScope.launch {
             try {
-                repository.recordHandover(batchId, senderRole, receiverRole, evidenceReference, notes)
+                repository.recordHandover(
+                    batchId, senderRole, receiverRole, evidenceReference, notes,
+                    transporterOrganisation, transportManifestReference
+                )
                 onComplete(true, "Handover saved. Evidence status is shown separately.")
             } catch (error: Exception) {
                 onComplete(false, error.message ?: "The handover could not be saved.")
+            }
+        }
+    }
+
+    fun recordWasteOutcome(draft: WasteOutcomeDraft, onComplete: (Boolean, String) -> Unit) {
+        val errors = WasteOutcomeValidator.validate(draft)
+        if (errors.isNotEmpty()) {
+            onComplete(false, errors.joinToString(" "))
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val outcome = repository.recordWasteOutcome(draft)
+                onComplete(
+                    true,
+                    "${WasteOutcomeStage.fromCode(outcome.stage)?.label ?: "Outcome"} record saved locally. Evidence status is shown separately."
+                )
+            } catch (error: Exception) {
+                onComplete(false, error.message ?: "The outcome record could not be saved.")
+            }
+        }
+    }
+
+    fun reviewWasteOutcome(id: String, reviewerRole: String, note: String, onComplete: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.reviewWasteOutcome(id, reviewerRole, note)
+                onComplete(true, "Outcome evidence review entry recorded; it is not certification of safe disposal.")
+            } catch (error: Exception) {
+                onComplete(false, error.message ?: "The outcome review could not be recorded.")
             }
         }
     }
