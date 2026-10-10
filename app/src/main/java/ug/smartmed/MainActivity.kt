@@ -808,6 +808,8 @@ private fun HandoverCard(handover: WasteHandover, onReview: () -> Unit) {
             Text(handover.id, style = MaterialTheme.typography.titleMedium)
             Text("Batch: ${handover.batchId}")
             Text("Sender: ${handover.senderRole} → Receiver: ${handover.receiverRole}")
+            if (handover.transporterOrganisation.isNotBlank()) Text("Transporter organisation: ${handover.transporterOrganisation}")
+            if (handover.transportManifestReference.isNotBlank()) Text("Transport manifest reference: ${handover.transportManifestReference}")
             Text("Date: ${formatTimestamp(handover.timestampEpochMillis)}")
             Text("Evidence reference: ${handover.evidenceReference.ifBlank { "Not provided" }}")
             Text(
@@ -823,6 +825,39 @@ private fun HandoverCard(handover: WasteHandover, onReview: () -> Unit) {
                 if (handover.reviewNote.isNotBlank()) Text("Review note: ${handover.reviewNote}")
             }
             if (handover.evidenceReference.isNotBlank() && handover.evidenceStatus != "REVIEW_RECORDED") {
+                OutlinedButton(onClick = onReview, modifier = Modifier.fillMaxWidth()) {
+                    Text("Record evidence review")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WasteOutcomeCard(outcome: WasteOutcome, onReview: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(outcome.id, style = MaterialTheme.typography.titleMedium)
+            Text("Batch: ${outcome.batchId}")
+            Text("Stage: ${WasteOutcomeStage.fromCode(outcome.stage)?.label ?: outcome.stage}")
+            Text("Method / facility: ${outcome.methodOrFacility}")
+            Text("Performed: ${formatDate(outcome.performedAtEpochMillis)}")
+            Text("Recorded: ${formatTimestamp(outcome.recordedAtEpochMillis)} • ${outcome.recordedByRole}")
+            Text("Evidence reference: ${outcome.evidenceReference.ifBlank { "Not provided" }}")
+            Text(
+                when (outcome.evidenceStatus) {
+                    "AWAITING_EVIDENCE" -> "Evidence status: missing reference"
+                    "PRESENT_UNREVIEWED" -> "Evidence status: reference recorded; review pending"
+                    "REVIEW_RECORDED" -> "Evidence status: review entry recorded; not certification of safe treatment/disposal"
+                    else -> "Evidence status: ${outcome.evidenceStatus}"
+                }
+            )
+            if (outcome.reviewedByRole != null) {
+                Text("Reviewer role: ${outcome.reviewedByRole} • ${formatTimestamp(outcome.reviewedAtEpochMillis ?: 0L)}")
+                if (outcome.reviewNote.isNotBlank()) Text("Review note: ${outcome.reviewNote}")
+            }
+            Text("Sync state: ${outcome.syncState} — local only")
+            if (outcome.evidenceReference.isNotBlank() && outcome.evidenceStatus != "REVIEW_RECORDED") {
                 OutlinedButton(onClick = onReview, modifier = Modifier.fillMaxWidth()) {
                     Text("Record evidence review")
                 }
