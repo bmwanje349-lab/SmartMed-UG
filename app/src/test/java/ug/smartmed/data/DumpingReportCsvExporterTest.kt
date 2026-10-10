@@ -15,7 +15,7 @@ class DumpingReportCsvExporterTest {
             reporterRole = "Nurse"
         )
         val csv = DumpingReportCsvExporter.export(listOf(report))
-        assertTrue(csv.contains(",\"'=1+1\","))
+        assertTrue(csv.contains(",'=1+1,Safe location text"))
     }
 
     @Test
