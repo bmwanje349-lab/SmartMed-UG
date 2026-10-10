@@ -46,6 +46,17 @@ class WasteBatchValidatorTest {
     }
 
     @Test
+    fun subcategoryMustBelongToSelectedCategory() {
+        val draft = validDraft().copy(
+            categoryCode = WasteCategory.SHARPS.code,
+            subcategory = WasteCategory.INFECTIOUS.subcategories.first()
+        )
+        assertTrue(
+            WasteBatchValidator.validate(draft).any { it.contains("subcategory that belongs") }
+        )
+    }
+
+    @Test
     fun unsupportedUnitIsRejected() {
         val draft = validDraft().copy(unit = "unknown-unit")
         assertTrue(WasteBatchValidator.validate(draft).any { it.contains("unit") })
