@@ -30,12 +30,16 @@ class ReportCsvExporterTest {
     @Test
     fun neutralizesSpreadsheetFormulaCells() {
         val batch = WasteBatch(
-            id = "SM-TEST-003", category = WasteCategory.CHEMICAL.code,
-            quantity = 1.0, unit = "kg", collectionPoint = "Demo",
-            createdAtEpochMillis = 3000L, notes = "=1+1"
+            id = "SM-TEST-003",
+            category = WasteCategory.CHEMICAL.code,
+            quantity = 1.0,
+            unit = "kg",
+            collectionPoint = "Demo",
+            createdAtEpochMillis = 3000L,
+            notes = "=1+1"
         )
         val csv = ReportCsvExporter.export(listOf(batch), emptyList())
-        assertTrue(csv.contains(",'=1+1\\r\\n"))
+        assertTrue(csv.contains(",'=1+1\r\n"))
     }
 
     @Test
