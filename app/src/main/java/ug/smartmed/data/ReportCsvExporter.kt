@@ -5,7 +5,8 @@ object ReportCsvExporter {
         "Batch ID", "Facility", "Category code", "Subcategory", "Quantity",
         "Unit", "Collection point", "Created at (UTC epoch ms)", "Recorded by role",
         "Record status", "Archived", "Local sync state", "Revision",
-        "Handover count", "Handovers awaiting evidence", "Handovers awaiting review", "Notes"
+        "Handover count", "Transporter organisations", "Transport manifest references",
+        "Handovers awaiting evidence", "Handovers awaiting review", "Notes"
     )
 
     fun export(batches: List<WasteBatch>, handovers: List<WasteHandover>): String {
@@ -18,6 +19,8 @@ object ReportCsvExporter {
                 batch.createdAtEpochMillis.toString(), batch.recordedByRole,
                 batch.recordStatus, batch.isArchived.toString(), batch.syncState,
                 batch.revision.toString(), related.size.toString(),
+                related.map { it.transporterOrganisation }.filter { it.isNotBlank() }.distinct().joinToString("; "),
+                related.map { it.transportManifestReference }.filter { it.isNotBlank() }.distinct().joinToString("; "),
                 related.count { it.evidenceStatus == "AWAITING_EVIDENCE" }.toString(),
                 related.count { it.evidenceStatus == "PRESENT_UNREVIEWED" }.toString(),
                 batch.notes
