@@ -15,8 +15,15 @@ object WasteBatchValidator {
     fun validate(draft: WasteBatchDraft): List<String> {
         val errors = mutableListOf<String>()
         if (draft.facilityName.isBlank()) errors += "Enter the facility name."
-        if (WasteCategory.fromCode(draft.categoryCode) == null) errors += "Choose a waste category."
-        if (draft.subcategory.isBlank()) errors += "Choose a waste subcategory."
+        val category = WasteCategory.fromCode(draft.categoryCode)
+        if (category == null) {
+            errors += "Choose a waste category."
+        }
+        if (draft.subcategory.isBlank()) {
+            errors += "Choose a waste subcategory."
+        } else if (category != null && draft.subcategory.trim() !in category.subcategories) {
+            errors += "Choose a subcategory that belongs to the selected category."
+        }
         val quantity = draft.quantityText.trim().toDoubleOrNull()
         if (quantity == null || !quantity.isFinite() || quantity <= 0.0) {
             errors += "Quantity must be a number greater than zero."
