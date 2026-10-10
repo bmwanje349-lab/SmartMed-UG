@@ -696,8 +696,13 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                             Text("Suspected-dumping reports recorded locally: ${dumpingReports.size} (unverified)")
                             Text("Handover records: ${handovers.size}")
                             Text("Handovers missing a reference: ${handovers.count { it.evidenceStatus == "AWAITING_EVIDENCE" }}")
-                            Text("References awaiting a recorded review: ${handovers.count { it.evidenceStatus == "PRESENT_UNREVIEWED" }}")
-                            Text("Review entries recorded: ${handovers.count { it.evidenceStatus == "REVIEW_RECORDED" }}")
+                            Text("Handover references awaiting a recorded review: ${handovers.count { it.evidenceStatus == "PRESENT_UNREVIEWED" }}")
+                            Text("Treatment/disposal outcomes: ${outcomes.size}")
+                            Text("Outcome records missing evidence references: ${outcomes.count { it.evidenceStatus == "AWAITING_EVIDENCE" }}")
+                            Text("Outcome references awaiting review: ${outcomes.count { it.evidenceStatus == "PRESENT_UNREVIEWED" }}")
+                            Text("Active batches without treatment record: ${batches.count { batch -> outcomes.none { it.batchId == batch.id && it.stage == WasteOutcomeStage.TREATMENT.code } }}")
+                            Text("Active batches without final-disposal record: ${batches.count { batch -> outcomes.none { it.batchId == batch.id && it.stage == WasteOutcomeStage.FINAL_DISPOSAL.code } }}")
+                            Text("These are documentation gaps to check against facility SOPs, not automatic findings of non-compliance.")
                             Text("Quantity is not added across different units; categories must be checked against current national guidance before a pilot.")
                         }
                     }
@@ -708,6 +713,21 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(WasteCategory.fromCode(code)?.label ?: "Legacy / unclassified: $code", modifier = Modifier.weight(1f))
                             Text(group.size.toString(), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+                item { Text("Batch records by day (local date)", style = MaterialTheme.typography.titleMedium) }
+                if (dailyBatchCounts.isEmpty()) {
+                    item { Text("No batch records to summarise yet.") }
+                }
+                items(dailyBatchCounts, key = { it.first }) { (day, group) ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(day, modifier = Modifier.weight(1f))
+                            Text("${group.size} batch(es)", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }
