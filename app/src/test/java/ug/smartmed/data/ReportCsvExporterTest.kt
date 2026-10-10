@@ -66,6 +66,6 @@ class ReportCsvExporterTest {
         )
 
         val csv = ReportCsvExporter.export(listOf(batch), handovers)
-        assertTrue(csv.contains("2,1,1,"))
+        assertTrue(csv.contains(",2,,,1,1,"))
     }
 }
