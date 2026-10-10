@@ -325,6 +325,7 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
     private fun handoverSnapshot(handover: WasteHandover): String = listOf(
         handover.id, handover.batchId, handover.senderRole, handover.receiverRole,
         handover.evidenceReference, handover.evidenceStatus,
+        handover.transporterOrganisation, handover.transportManifestReference,
         handover.reviewedByRole.orEmpty(), handover.reviewNote
     ).joinToString("|") { it.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "\\n") }
 }
