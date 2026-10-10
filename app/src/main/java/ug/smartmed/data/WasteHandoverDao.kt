@@ -19,4 +19,7 @@ interface WasteHandoverDao {
 
     @Update
     suspend fun update(handover: WasteHandover)
+
+    @Query("SELECT * FROM waste_handovers WHERE syncState = 'PENDING' ORDER BY timestampEpochMillis ASC")
+    suspend fun getPendingForSync(): List<WasteHandover>
 }
