@@ -377,6 +377,20 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                                 onSelected = { receiverRole = it }
                             )
                             OutlinedTextField(
+                                value = transporterOrganisation,
+                                onValueChange = { if (it.length <= 160) transporterOrganisation = it },
+                                label = { Text("Transporter organisation (optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = transportManifestReference,
+                                onValueChange = { if (it.length <= 240) transportManifestReference = it },
+                                label = { Text("Transport manifest / register reference") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            OutlinedTextField(
                                 value = evidenceReference,
                                 onValueChange = { if (it.length <= 240) evidenceReference = it },
                                 label = { Text("Supporting evidence reference (optional)") },
@@ -393,12 +407,15 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                             Button(
                                 onClick = {
                                     viewModel.recordHandover(
-                                        selectedBatchId, senderRole, receiverRole, evidenceReference, handoverNotes
+                                        selectedBatchId, senderRole, receiverRole, evidenceReference, handoverNotes,
+                                        transporterOrganisation, transportManifestReference
                                     ) { success, result ->
                                         message = result
                                         if (success) {
                                             evidenceReference = ""
                                             handoverNotes = ""
+                                            transporterOrganisation = ""
+                                            transportManifestReference = ""
                                         }
                                     }
                                 },
