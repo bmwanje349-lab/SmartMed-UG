@@ -20,6 +20,7 @@ SmartMed-UG is a prototype. Passing CI does not authorise use in a health facili
 ## Known limits that must be addressed before production
 
 - No sign-in, verified staff identities, facility tenancy boundary or permissions enforcement.
+- No database encryption at rest. Real operational data must not be stored until a suitable local-data protection design and security review are completed.
 - No remote server, sync endpoint, encryption key management, remote revocation or multi-device conflict resolution. PENDING means locally recorded and not uploaded.
 - Audit events are local application records, not a tamper-proof or cryptographically signed audit system.
 - Evidence is represented by a human-entered reference; the app does not store, authenticate or independently validate documentary evidence.
