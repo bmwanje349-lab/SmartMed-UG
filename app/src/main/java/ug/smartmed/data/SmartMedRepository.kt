@@ -8,10 +8,12 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
     private val batches = database.wasteBatchDao()
     private val audits = database.batchAuditDao()
     private val handovers = database.wasteHandoverDao()
+    private val dumpingReports = database.dumpingReportDao()
 
     fun observeActiveBatches(): Flow<List<WasteBatch>> = batches.observeActive()
     fun observeHandovers(): Flow<List<WasteHandover>> = handovers.observeAll()
     fun observeRecentAuditEvents(): Flow<List<BatchAuditEvent>> = audits.observeRecent()
+    fun observeDumpingReports(): Flow<List<DumpingReport>> = dumpingReports.observeAll()
 
     suspend fun createBatch(draft: WasteBatchDraft): WasteBatch {
         val now = System.currentTimeMillis()
@@ -184,6 +186,39 @@ class SmartMedRepository(private val database: SmartMedDatabase) {
                 )
             )
         }
+    }
+
+    suspend fun recordDumpingReport(
+        description: String,
+        locationDescription: String,
+        observedAtEpochMillis: Long,
+        reporterRole: String,
+        referralReference: String,
+        followUpNotes: String
+    ): DumpingReport {
+        require(description.isNotBlank()) { "Describe only what was observed." }
+        require(description.length <= 1500) { "Description must be 1,500 characters or fewer." }
+        require(locationDescription.isNotBlank()) { "Enter a location description." }
+        require(locationDescription.length <= 300) { "Location must be 300 characters or fewer." }
+        require(observedAtEpochMillis > 0L && observedAtEpochMillis <= System.currentTimeMillis()) { "Enter a valid observed date." }
+        require(reporterRole in SmartMedOptions.authorisedRoles) { "Choose an authorised role label." }
+        require(referralReference.length <= 240) { "External reference must be 240 characters or fewer." }
+        require(followUpNotes.length <= 1000) { "Follow-up notes must be 1,000 characters or fewer." }
+
+        val report = DumpingReport(
+            id = "DR-" + UUID.randomUUID().toString().replace("-", "").take(12).uppercase(),
+            description = description.trim(),
+            locationDescription = locationDescription.trim(),
+            observedAtEpochMillis = observedAtEpochMillis,
+            reportedAtEpochMillis = System.currentTimeMillis(),
+            reporterRole = reporterRole,
+            status = "UNVERIFIED_LOCAL",
+            referralReference = referralReference.trim(),
+            followUpNotes = followUpNotes.trim(),
+            syncState = "PENDING"
+        )
+        dumpingReports.insert(report)
+        return report
     }
 
     private fun snapshot(batch: WasteBatch): String = listOf(
