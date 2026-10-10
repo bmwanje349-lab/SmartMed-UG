@@ -7,9 +7,10 @@
 - Controlled, draft healthcare-waste categories and supported units.
 - Batch registration, searchable active list, reasoned corrections and soft archiving.
 - Transactional local audit events.
-- Handover log with a supporting-evidence reference and explicit missing/unreviewed/review-entry statuses.
+- Handover log with transporter organisation and transport-manifest reference, plus explicit missing/unreviewed/review-entry statuses.
+- Treatment and final-disposal outcomes with method/facility, performed date, evidence reference and a separate review entry.
 - A local-only suspected-dumping incident log with date, location description, factual observation, and optional manually entered external reference. Reports remain unverified and are not sent to authorities.
-- Local summary and CSV export.
+- Local summary by category and by day, documentation-gap indicators, and dedicated CSV exports for batch/handover, treatment/disposal and suspected-dumping records.
 - Unit tests and CI APK build.
 - Pending sync state is recorded, but no upload or server is implemented.
 
@@ -17,7 +18,7 @@
 
 - Confirm categories, subcategories, units and evidence requirements against current Ministry of Health guidance and the facility's SOPs.
 - Review user roles and work with a facility supervisor to define the audit/correction workflow.
-- Test migration, interrupted writes, duplicate IDs, CSV output and record retention.
+- Test database migrations from version 1 to version 4, interrupted writes, duplicate IDs, CSV output and record retention.
 - Use fictional records until written facility and required institutional approvals are in place.
 - Run a permitted pilot only after permissions, training, baseline definition and a safe operating protocol are agreed.
 
