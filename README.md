@@ -45,6 +45,8 @@ The APK is provided as the `smartmed-debug-apk` artifact for successful runs. It
 
 This is a **technical prototype**, not an approved production system. Read [the safe pilot checklist](docs/SAFE_PILOT_CHECKLIST.md) and [the roadmap](docs/ROADMAP.md) before planning any real facility use.
 
+For the 2026–2027 NEMA call, see the [grant readiness pack](docs/NEMA_2026_INNOVATION_GRANT_READINESS.md) and [copy-ready NEMA, university and facility outreach messages](docs/NEMA_PILOT_OUTREACH_MESSAGES.md). The pack marks missing evidence explicitly and does not claim that a facility pilot has happened.
+
 Relevant official references for a supervisor-led mapping exercise:
 - [Uganda Ministry of Health — National Healthcare Waste Operational Guideline (2025)](https://library.health.go.ug/environmental-health/inspection-sanitation-and-hygiene/national-healthcare-waste-operational)
 - [Uganda Ministry of Health — National Healthcare Waste Management Strategy (2025/26–2029/30)](https://library.health.go.ug/index.php/environmental-health/inspection-sanitation-and-hygiene/national-healthcare-waste-management)
