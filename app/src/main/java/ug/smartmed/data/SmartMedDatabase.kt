@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [WasteBatch::class, BatchAuditEvent::class, WasteHandover::class, DumpingReport::class],
-    version = 3,
+    entities = [WasteBatch::class, BatchAuditEvent::class, WasteHandover::class, DumpingReport::class, WasteOutcome::class],
+    version = 4,
     exportSchema = false
 )
 abstract class SmartMedDatabase : RoomDatabase() {
@@ -17,6 +17,7 @@ abstract class SmartMedDatabase : RoomDatabase() {
     abstract fun batchAuditDao(): BatchAuditDao
     abstract fun wasteHandoverDao(): WasteHandoverDao
     abstract fun dumpingReportDao(): DumpingReportDao
+    abstract fun wasteOutcomeDao(): WasteOutcomeDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -91,6 +92,36 @@ abstract class SmartMedDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE waste_handovers ADD COLUMN transporterOrganisation TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE waste_handovers ADD COLUMN transportManifestReference TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS waste_outcomes (
+                        id TEXT NOT NULL,
+                        batchId TEXT NOT NULL,
+                        stage TEXT NOT NULL,
+                        methodOrFacility TEXT NOT NULL,
+                        performedAtEpochMillis INTEGER NOT NULL,
+                        recordedAtEpochMillis INTEGER NOT NULL,
+                        recordedByRole TEXT NOT NULL,
+                        evidenceReference TEXT NOT NULL DEFAULT '',
+                        evidenceStatus TEXT NOT NULL DEFAULT 'AWAITING_EVIDENCE',
+                        reviewedByRole TEXT,
+                        reviewedAtEpochMillis INTEGER,
+                        reviewNote TEXT NOT NULL DEFAULT '',
+                        syncState TEXT NOT NULL DEFAULT 'PENDING',
+                        PRIMARY KEY(id),
+                        FOREIGN KEY(batchId) REFERENCES waste_batches(id)
+                            ON UPDATE NO ACTION ON DELETE RESTRICT
+                    )""".trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_outcomes_batchId ON waste_outcomes(batchId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_outcomes_stage ON waste_outcomes(stage)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_waste_outcomes_performedAtEpochMillis ON waste_outcomes(performedAtEpochMillis)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: SmartMedDatabase? = null
 
@@ -101,7 +132,7 @@ abstract class SmartMedDatabase : RoomDatabase() {
                     SmartMedDatabase::class.java,
                     "smartmed-local.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { INSTANCE = it }
             }
