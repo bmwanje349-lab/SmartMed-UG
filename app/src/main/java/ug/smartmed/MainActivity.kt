@@ -458,6 +458,127 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                 }
             }
 
+            SmartMedTab.OUTCOMES -> LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Treatment and final-disposal record", style = MaterialTheme.typography.titleLarge)
+                            Text("Record the actual method or facility and a supporting document reference when available. A saved entry is not proof that treatment or disposal was safe.")
+                            DropdownField(
+                                label = "Batch",
+                                value = selectedOutcomeBatchId,
+                                options = listOf("" to "Choose a batch") + batches.map {
+                                    it.id to "${it.id} — ${WasteCategory.fromCode(it.category)?.label ?: it.category}"
+                                },
+                                onSelected = { selectedOutcomeBatchId = it }
+                            )
+                            DropdownField(
+                                label = "Outcome stage",
+                                value = outcomeStage.code,
+                                options = WasteOutcomeStage.values().map { it.code to it.label },
+                                onSelected = { outcomeStage = WasteOutcomeStage.fromCode(it) ?: WasteOutcomeStage.TREATMENT }
+                            )
+                            OutlinedTextField(
+                                value = outcomeMethodOrFacility,
+                                onValueChange = { if (it.length <= 200) outcomeMethodOrFacility = it },
+                                label = { Text("Treatment method / final-disposal facility") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2
+                            )
+                            OutlinedTextField(
+                                value = outcomeDate,
+                                onValueChange = { if (it.length <= 10) outcomeDate = it },
+                                label = { Text("Date performed (YYYY-MM-DD)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            DropdownField(
+                                label = "Recorder role",
+                                value = outcomeRecorderRole,
+                                options = SmartMedOptions.authorisedRoles.map { it to it },
+                                onSelected = { outcomeRecorderRole = it }
+                            )
+                            OutlinedTextField(
+                                value = outcomeEvidenceReference,
+                                onValueChange = { if (it.length <= 240) outcomeEvidenceReference = it },
+                                label = { Text("Treatment certificate / register / receipt reference") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            Button(
+                                onClick = {
+                                    val performedAt = parseObservedDate(outcomeDate)
+                                    if (performedAt == null) {
+                                        message = "Enter a valid date using YYYY-MM-DD that is not in the future."
+                                    } else {
+                                        val draft = WasteOutcomeDraft(
+                                            batchId = selectedOutcomeBatchId,
+                                            stageCode = outcomeStage.code,
+                                            methodOrFacility = outcomeMethodOrFacility,
+                                            performedAtEpochMillis = performedAt,
+                                            recordedByRole = outcomeRecorderRole,
+                                            evidenceReference = outcomeEvidenceReference
+                                        )
+                                        viewModel.recordWasteOutcome(draft) { success, result ->
+                                            message = result
+                                            if (success) {
+                                                outcomeMethodOrFacility = ""
+                                                outcomeDate = currentLocalDate()
+                                                outcomeEvidenceReference = ""
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Save treatment/disposal record offline") }
+                            Text("Evidence review")
+                            DropdownField(
+                                label = "Reviewer role",
+                                value = outcomeReviewerRole,
+                                options = SmartMedOptions.authorisedRoles.map { it to it },
+                                onSelected = { outcomeReviewerRole = it }
+                            )
+                            OutlinedTextField(
+                                value = outcomeReviewNote,
+                                onValueChange = { if (it.length <= 1000) outcomeReviewNote = it },
+                                label = { Text("Outcome review note (optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2
+                            )
+                        }
+                    }
+                    Text("Treatment/disposal records: ${outcomes.size}", style = MaterialTheme.typography.titleMedium)
+                }
+                if (outcomes.isEmpty()) {
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text("No treatment/disposal outcomes recorded yet. Use fictional batches for initial testing.", modifier = Modifier.padding(16.dp))
+                        }
+                    }
+                }
+                items(outcomes, key = { it.id }) { outcome ->
+                    WasteOutcomeCard(outcome) {
+                        viewModel.reviewWasteOutcome(outcome.id, outcomeReviewerRole, outcomeReviewNote) { _, result ->
+                            message = result
+                        }
+                    }
+                }
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            pendingCsv = WasteOutcomeCsvExporter.export(outcomes)
+                            createCsv.launch("smartmed-treatment-disposal-${System.currentTimeMillis()}.csv")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Export treatment/disposal log as CSV") }
+                    Text("The export contains locally recorded evidence references. It is not sent to an authority.")
+                }
+            }
+
             SmartMedTab.DUMPING -> LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(16.dp),
