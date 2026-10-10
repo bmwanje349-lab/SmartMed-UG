@@ -11,10 +11,10 @@ SmartMed-UG is a Kotlin/Android prototype designed to test whether simple local 
 - Search across active batches.
 - Corrections require a reason. The previous and corrected snapshots are appended to a local audit log.
 - Soft archiving rather than destructive delete; batch history and related handovers are retained.
-- Batch handover records with sender/receiver role labels and a supporting-document reference.
-- Separate status for missing evidence, recorded-but-unreviewed reference, and a review entry. A review entry is not proof of safe treatment or disposal.
-- Basic count-by-category report and local CSV export.
-- A sync state is stored for future work. **There is no server connection or synchronisation implementation yet.**
+- Batch handover records with sender/receiver role labels, transporter organisation, transport manifest reference, and a supporting-document reference.
+- Separate status for missing evidence, recorded-but-unreviewed reference, and a review entry for handovers and treatment/disposal outcomes. A review entry is not proof of safe treatment or disposal.
+- Local summary by category and by day, documentation-gap indicators, and CSV exports for batch/handover, treatment/disposal, and suspected-dumping records.
+- A sync state is stored for future work, with queries to retrieve pending records. **There is no server connection or synchronisation implementation yet; nothing is uploaded.**
 - Local-only suspected-dumping incident log with a date, safe location description, factual observation and optional manually entered external reference. All reports remain unverified; the app sends nothing to authorities.
 - GitHub Actions runs local unit tests and builds/uploads the debug APK.
 
@@ -55,7 +55,7 @@ NEMA's current innovation call states that support is for innovations at pilotin
 ## Next steps
 
 1. Confirm category names and evidence requirements with an appropriate facility supervisor.
-2. Test version-1-to-version-2 database migration and all batch/handover workflows using fictional data.
+2. Test Room migrations from database version 1 through version 4 and all batch, handover, treatment/disposal and incident workflows using fictional data.
 3. Confirm university, facility, ethics/research and NEMA requirements before collecting any real data.
 4. Conduct and document an approved pilot with baseline and follow-up measures before claiming operational or environmental benefit.
 5. Before production, add authenticated identities, access enforcement, secure backend/sync, tested backups, tamper-evident audit logging, privacy/security review and operational support.
