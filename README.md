@@ -15,6 +15,7 @@ SmartMed-UG is a Kotlin/Android prototype designed to test whether simple local 
 - Separate status for missing evidence, recorded-but-unreviewed reference, and a review entry. A review entry is not proof of safe treatment or disposal.
 - Basic count-by-category report and local CSV export.
 - A sync state is stored for future work. **There is no server connection or synchronisation implementation yet.**
+- Local-only suspected-dumping incident log with a date, safe location description, factual observation and optional manually entered external reference. All reports remain unverified; the app sends nothing to authorities.
 - GitHub Actions runs local unit tests and builds/uploads the debug APK.
 
 ## Build and test
@@ -37,6 +38,7 @@ The APK is provided as the `smartmed-debug-apk` artifact for successful runs. It
 - Recording a handover or a review does not independently establish that waste was received, treated or finally disposed of safely.
 - No NEMA, Ministry, district or facility integration is implemented or implied.
 - The software does not itself prove environmental impact or constitute a completed real-world pilot.
+- Do not use the suspected-dumping screen to approach or handle waste, accuse named people, or claim an authority was notified. The feature is a local record, not an official reporting channel.
 
 ## Current readiness
 
