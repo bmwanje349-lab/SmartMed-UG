@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [WasteBatch::class, BatchAuditEvent::class, WasteHandover::class],
-    version = 2,
+    entities = [WasteBatch::class, BatchAuditEvent::class, WasteHandover::class, DumpingReport::class],
+    version = 3,
     exportSchema = false
 )
 abstract class SmartMedDatabase : RoomDatabase() {
@@ -68,6 +68,28 @@ abstract class SmartMedDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS dumping_reports (
+                        id TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        locationDescription TEXT NOT NULL,
+                        observedAtEpochMillis INTEGER NOT NULL,
+                        reportedAtEpochMillis INTEGER NOT NULL,
+                        reporterRole TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'UNVERIFIED_LOCAL',
+                        referralReference TEXT NOT NULL DEFAULT '',
+                        followUpNotes TEXT NOT NULL DEFAULT '',
+                        syncState TEXT NOT NULL DEFAULT 'PENDING',
+                        PRIMARY KEY(id)
+                    )""".trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_dumping_reports_reportedAtEpochMillis ON dumping_reports(reportedAtEpochMillis)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_dumping_reports_status ON dumping_reports(status)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: SmartMedDatabase? = null
 
@@ -78,7 +100,7 @@ abstract class SmartMedDatabase : RoomDatabase() {
                     SmartMedDatabase::class.java,
                     "smartmed-local.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { INSTANCE = it }
             }
