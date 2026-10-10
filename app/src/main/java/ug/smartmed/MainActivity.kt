@@ -601,8 +601,8 @@ private fun DropdownField(
 private fun formatTimestamp(epochMillis: Long): String =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(epochMillis))
 
-private fun writeCsv(contentResolver: ContentResolver, uri: Uri, csv: String): String =
-    try {
+private fun writeCsv(contentResolver: ContentResolver, uri: Uri, csv: String): String {
+    return try {
         val stream = contentResolver.openOutputStream(uri)
             ?: return "Could not open the selected location for report export."
         stream.bufferedWriter(Charsets.UTF_8).use { it.write(csv) }
@@ -610,3 +610,4 @@ private fun writeCsv(contentResolver: ContentResolver, uri: Uri, csv: String): S
     } catch (error: Exception) {
         "Report export failed. Choose a writable location and try again."
     }
+}
