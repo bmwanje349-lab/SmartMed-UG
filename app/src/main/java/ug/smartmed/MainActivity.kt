@@ -28,7 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -47,6 +47,10 @@ import ug.smartmed.data.BatchAuditEvent
 import ug.smartmed.data.ReportCsvExporter
 import ug.smartmed.data.DumpingReport
 import ug.smartmed.data.DumpingReportCsvExporter
+import ug.smartmed.data.WasteOutcome
+import ug.smartmed.data.WasteOutcomeDraft
+import ug.smartmed.data.WasteOutcomeCsvExporter
+import ug.smartmed.data.WasteOutcomeStage
 import ug.smartmed.data.SmartMedOptions
 import ug.smartmed.data.SmartMedViewModel
 import ug.smartmed.data.WasteBatch
@@ -77,6 +81,7 @@ class MainActivity : ComponentActivity() {
 private enum class SmartMedTab(val label: String) {
     BATCHES("Batches"),
     HANDOVERS("Handovers"),
+    OUTCOMES("Treatment"),
     DUMPING("Dumping"),
     REPORTS("Reports"),
     AUDIT("Audit trail")
@@ -88,6 +93,7 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
     val handovers by viewModel.handovers.collectAsState()
     val auditEvents by viewModel.auditEvents.collectAsState()
     val dumpingReports by viewModel.dumpingReports.collectAsState()
+    val outcomes by viewModel.outcomes.collectAsState()
     val context = LocalContext.current
 
     var selectedTab by remember { mutableStateOf(SmartMedTab.BATCHES) }
@@ -109,8 +115,19 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
     var receiverRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
     var evidenceReference by remember { mutableStateOf("") }
     var handoverNotes by remember { mutableStateOf("") }
+    var transporterOrganisation by remember { mutableStateOf("") }
+    var transportManifestReference by remember { mutableStateOf("") }
     var reviewerRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
     var reviewNote by remember { mutableStateOf("") }
+
+    var selectedOutcomeBatchId by remember { mutableStateOf("") }
+    var outcomeStage by remember { mutableStateOf(WasteOutcomeStage.TREATMENT) }
+    var outcomeMethodOrFacility by remember { mutableStateOf("") }
+    var outcomeDate by remember { mutableStateOf(currentLocalDate()) }
+    var outcomeRecorderRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
+    var outcomeEvidenceReference by remember { mutableStateOf("") }
+    var outcomeReviewerRole by remember { mutableStateOf(SmartMedOptions.authorisedRoles[1]) }
+    var outcomeReviewNote by remember { mutableStateOf("") }
 
     var incidentDescription by remember { mutableStateOf("") }
     var incidentLocation by remember { mutableStateOf("") }
@@ -154,6 +171,11 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
             batch.collectionPoint.lowercase(Locale.ROOT).contains(query) ||
             (WasteCategory.fromCode(batch.category)?.label ?: batch.category).lowercase(Locale.ROOT).contains(query)
     }
+    val dailyBatchCounts = remember(batches) {
+        batches.groupBy { formatDate(it.createdAtEpochMillis) }
+            .toList()
+            .sortedByDescending { it.first }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -164,7 +186,7 @@ private fun SmartMedApp(viewModel: SmartMedViewModel) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        TabRow(selectedTabIndex = selectedTab.ordinal) {
+        ScrollableTabRow(selectedTabIndex = selectedTab.ordinal) {
             SmartMedTab.values().forEach { tab ->
                 Tab(
                     selected = selectedTab == tab,
